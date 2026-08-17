@@ -1,0 +1,332 @@
+{
+  "name": "Leave Approval System - Webhook Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "approve-leave",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "webhook-demo-id",
+      "name": "Webhook",
+      "webhookId": "demo-webhook-id"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "request-id-field",
+              "name": "requestId",
+              "value": "={{ $json.query.requestId }}",
+              "type": "string"
+            },
+            {
+              "id": "action-field",
+              "name": "action",
+              "value": "={{ $json.query.action }}",
+              "type": "string"
+            },
+            {
+              "id": "role-field",
+              "name": "role",
+              "value": "={{ $json.query.role }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [208, 0],
+      "id": "edit-fields-demo-id",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Request ID",
+              "lookupValue": "={{ $json.requestId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [416, 0],
+      "id": "get-row-demo-id",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "approval-condition-id",
+              "leftValue": "={{ $('Edit Fields').item.json.action }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [624, 0],
+      "id": "if-demo-id",
+      "name": "If Approved"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Approved",
+            "Request ID": "={{ $('Edit Fields').item.json.requestId }}",
+            "Approved Date": "={{ $now }}",
+            "Approved By": "={{ $('Edit Fields').item.json.role }}"
+          },
+          "matchingColumns": [
+            "Request ID"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [832, -160],
+      "id": "update-approved-demo-id",
+      "name": "Update Approved Request",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Rejected",
+            "Request ID": "={{ $('Edit Fields').item.json.requestId }}",
+            "Approved Date": "={{ $now }}",
+            "Approved By": "={{ $('Edit Fields').item.json.role }}"
+          },
+          "matchingColumns": [
+            "Request ID"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [816, 80],
+      "id": "update-rejected-demo-id",
+      "name": "Update Rejected Request",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "employee@example.com",
+        "subject": "Leave Request Approved",
+        "message": "<h2>Leave Approved</h2><p>Hello,</p><p>Your leave request has been <b>APPROVED</b>.</p><p><b>Request ID:</b> {{ $('Get row(s) in sheet').item.json['Request ID'] }}</p><p><b>Leave Type:</b> {{ $('Get row(s) in sheet').item.json['Leave Type'] }}</p><p><b>Start Date:</b> {{ $('Get row(s) in sheet').item.json['Start Date'] }}</p><p><b>End Date:</b> {{ $('Get row(s) in sheet').item.json['End Date'] }}</p><p><b>Approved By:</b> {{ $('Edit Fields').item.json.role }}</p><br>Regards,<br><b>HR Department</b>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1040, -160],
+      "id": "gmail-approved-demo-id",
+      "name": "Notify Employee - Approved",
+      "webhookId": "gmail-demo-webhook-approved",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "YOUR_GMAIL_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "employee@example.com",
+        "subject": "Leave Request Rejected",
+        "message": "<h2>Leave Rejected</h2><p>Hello,</p><p>Unfortunately, your leave request has been <b>REJECTED</b>.</p><p><b>Request ID:</b> {{ $('Get row(s) in sheet').item.json['Request ID'] }}</p><p><b>Leave Type:</b> {{ $('Get row(s) in sheet').item.json['Leave Type'] }}</p><p><b>Reviewed By:</b> {{ $('Edit Fields').item.json.role }}</p><br><p>If you have any questions, please contact HR.</p>Regards,<br><b>HR Department</b>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1040, 80],
+      "id": "gmail-rejected-demo-id",
+      "name": "Notify Employee - Rejected",
+      "webhookId": "gmail-demo-webhook-rejected",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "YOUR_GMAIL_CREDENTIAL"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Approved": {
+      "main": [
+        [
+          {
+            "node": "Update Approved Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Rejected Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Approved Request": {
+      "main": [
+        [
+          {
+            "node": "Notify Employee - Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Rejected Request": {
+      "main": [
+        [
+          {
+            "node": "Notify Employee - Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "demo-version-id",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "demo-instance-id"
+  },
+  "id": "leave-approval-demo",
+  "tags": []
+}

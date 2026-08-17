@@ -1,0 +1,421 @@
+{
+  "name": "Employee Leave Approval Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "*/5 * * * *"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "google-sheets-trigger",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "employeeName",
+              "value": "={{ $json['Employee Name'] }}",
+              "type": "string"
+            },
+            {
+              "name": "employeeEmail",
+              "value": "={{ $json['Employee Email'] }}",
+              "type": "string"
+            },
+            {
+              "name": "department",
+              "value": "={{ $json['Department'] }}",
+              "type": "string"
+            },
+            {
+              "name": "leaveType",
+              "value": "={{ $json['Leave Type'] }}",
+              "type": "string"
+            },
+            {
+              "name": "startDate",
+              "value": "={{ $json['Start Date'] }}",
+              "type": "string"
+            },
+            {
+              "name": "endDate",
+              "value": "={{ $json['End Date'] }}",
+              "type": "string"
+            },
+            {
+              "name": "reason",
+              "value": "={{ $json['Reason'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "edit-fields",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const start = new Date($json.startDate);\\nconst end = new Date($json.endDate);\\n\\nconst diffTime = end.getTime() - start.getTime();\\nconst leaveDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;\\n\\nreturn {\\n  ...$json,\\n  leaveDays\\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "calculate-leave-days",
+      "name": "Calculate Leave Days"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\\n\\nconst year = now.getFullYear();\\nconst month = String(now.getMonth() + 1).padStart(2, '0');\\nconst day = String(now.getDate()).padStart(2, '0');\\n\\nconst random = Math.floor(1000 + Math.random() * 9000);\\n\\nreturn [{\\n  json: {\\n    ...$json,\\n    requestId: `LR-${year}${month}${day}-${random}`\\n  }\\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "generate-request-id",
+      "name": "Generate Request ID"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Request ID": "={{ $json.requestId }}",
+            "Timestamp": "={{ $('Google Sheets Trigger').item.json.Timestamp }}"
+          },
+          "matchingColumns": [
+            "Timestamp"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        0
+      ],
+      "id": "update-request-id",
+      "name": "Update Request ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.leaveDays }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        960,
+        0
+      ],
+      "id": "approval-routing",
+      "name": "Approval Routing"
+    },
+    {
+      "parameters": {
+        "sendTo": "hr@example.com",
+        "subject": "=HR Approval Required - {{ $json.employeeName }} ({{ $json.leaveDays }} Days Leave)",
+        "message": "=<h2>Leave Approval Request</h2>\\n\\n<p>A new leave request requires your approval.</p>\\n\\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;\">\\n<tr><td><strong>Request ID</strong></td><td>{{ $json.requestId }}</td></tr>\\n<tr><td><strong>Employee</strong></td><td>{{ $json.employeeName }}</td></tr>\\n<tr><td><strong>Leave Type</strong></td><td>{{ $json.leaveType }}</td></tr>\\n<tr><td><strong>Start Date</strong></td><td>{{ $json.startDate }}</td></tr>\\n<tr><td><strong>End Date</strong></td><td>{{ $json.endDate }}</td></tr>\\n<tr><td><strong>Duration</strong></td><td>{{ $json.leaveDays }} Day(s)</td></tr>\\n<tr><td><strong>Reason</strong></td><td>{{ $json.reason }}</td></tr>\\n</table>\\n\\n<br>\\n\\n<a href=\"https://YOUR-N8N-DOMAIN/webhook/approve-leave?requestId={{ $json.requestId }}&action=approve&role=hr\">Approve</a>\\n&nbsp;&nbsp;\\n<a href=\"https://YOUR-N8N-DOMAIN/webhook/approve-leave?requestId={{ $json.requestId }}&action=reject&role=hr\">Reject</a>"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        112
+      ],
+      "id": "send-hr-approval",
+      "name": "Send HR Approval Email",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "manager@example.com",
+        "subject": "=Manager Approval Required - {{ $json.employeeName }} ({{ $json.leaveDays }} Days Leave)",
+        "message": "=<h2>Leave Approval Request</h2>\\n\\n<p>A new leave request requires your approval.</p>\\n\\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;\">\\n<tr><td><strong>Request ID</strong></td><td>{{ $json.requestId }}</td></tr>\\n<tr><td><strong>Employee</strong></td><td>{{ $json.employeeName }}</td></tr>\\n<tr><td><strong>Leave Type</strong></td><td>{{ $json.leaveType }}</td></tr>\\n<tr><td><strong>Start Date</strong></td><td>{{ $json.startDate }}</td></tr>\\n<tr><td><strong>End Date</strong></td><td>{{ $json.endDate }}</td></tr>\\n<tr><td><strong>Duration</strong></td><td>{{ $json.leaveDays }} Day(s)</td></tr>\\n<tr><td><strong>Reason</strong></td><td>{{ $json.reason }}</td></tr>\\n</table>\\n\\n<br>\\n\\n<a href=\"https://YOUR-N8N-DOMAIN/webhook/approve-leave?requestId={{ $json.requestId }}&action=approve&role=manager\">Approve</a>\\n&nbsp;&nbsp;\\n<a href=\"https://YOUR-N8N-DOMAIN/webhook/approve-leave?requestId={{ $json.requestId }}&action=reject&role=manager\">Reject</a>"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        -80
+      ],
+      "id": "send-manager-approval",
+      "name": "Send Manager Approval Email",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Pending HR Approval",
+            "Employee Email": "={{ $json.employeeEmail }}",
+            "Request ID": "={{ $json.requestId }}"
+          },
+          "matchingColumns": [
+            "Request ID"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        112
+      ],
+      "id": "update-hr-status",
+      "name": "Update HR Approval Status",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Employee Leave Requests"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Form Responses 1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Pending Manager Approval",
+            "Employee Email": "={{ $json.employeeEmail }}",
+            "Request ID": "={{ $json.requestId }}"
+          },
+          "matchingColumns": [
+            "Request ID"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        -80
+      ],
+      "id": "update-manager-status",
+      "name": "Update Manager Approval Status",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Calculate Leave Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Leave Days": {
+      "main": [
+        [
+          {
+            "node": "Generate Request ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Request ID": {
+      "main": [
+        [
+          {
+            "node": "Update Request ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Request ID": {
+      "main": [
+        [
+          {
+            "node": "Approval Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Routing": {
+      "main": [
+        [
+          {
+            "node": "Send HR Approval Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Manager Approval Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send HR Approval Email": {
+      "main": [
+        [
+          {
+            "node": "Update HR Approval Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Manager Approval Email": {
+      "main": [
+        [
+          {
+            "node": "Update Manager Approval Status",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
